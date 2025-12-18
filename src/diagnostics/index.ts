@@ -3,15 +3,22 @@ import {
   DiagnosticSeverity,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
-const VALID_HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
-const VALID_META_TYPES = ['http', 'graphql'];
-const REQUIRED_META_FIELDS = ['name', 'type'];
+import { checkDuplicateBlocks } from './duplicates';
+import {
+  HTTP_METHODS,
+  VALID_META_TYPES,
+  REQUIRED_META_FIELDS,
+  VALID_BLOCKS,
+  DiagnosticCode,
+} from '../constants';
+import { createDiagnostic, createSimpleDiagnostic } from '../utils/diagnostics';
 
 export function validateBruDocument(textDocument: TextDocument): Diagnostic[] {
   const text = textDocument.getText();
   const lines = text.split('\n');
   const diagnostics: Diagnostic[] = [];
+
+  diagnostics.push(...checkDuplicateBlocks(lines, textDocument.uri));
 
   let hasHttpMethod = false;
   let hasMeta = false;
@@ -29,7 +36,7 @@ export function validateBruDocument(textDocument: TextDocument): Diagnostic[] {
       currentBlock = blockMatch[1];
       blockStartLine = i;
 
-      if (VALID_HTTP_METHODS.includes(currentBlock)) {
+      if (HTTP_METHODS.includes(currentBlock as any)) {
         hasHttpMethod = true;
       }
 
@@ -55,27 +62,25 @@ export function validateBruDocument(textDocument: TextDocument): Diagnostic[] {
   }
 
   if (!hasHttpMethod) {
-    diagnostics.push({
-      severity: DiagnosticSeverity.Error,
-      range: {
-        start: { line: 0, character: 0 },
-        end: { line: 0, character: 0 }
-      },
-      message: 'Missing HTTP method block (get, post, put, patch, delete)',
-      source: 'bruno-lsp'
-    });
+    diagnostics.push(
+      createSimpleDiagnostic(
+        DiagnosticSeverity.Error,
+        0,
+        'Missing HTTP method block (get, post, put, patch, delete)',
+        DiagnosticCode.MissingHttpMethod
+      )
+    );
   }
 
   if (!hasMeta) {
-    diagnostics.push({
-      severity: DiagnosticSeverity.Warning,
-      range: {
-        start: { line: 0, character: 0 },
-        end: { line: 0, character: 0 }
-      },
-      message: 'Missing meta block (recommended)',
-      source: 'bruno-lsp'
-    });
+    diagnostics.push(
+      createSimpleDiagnostic(
+        DiagnosticSeverity.Warning,
+        0,
+        'Missing meta block (recommended)',
+        DiagnosticCode.MissingMeta
+      )
+    );
   }
 
   return diagnostics;
@@ -83,39 +88,19 @@ export function validateBruDocument(textDocument: TextDocument): Diagnostic[] {
 
 function validateBlockName(blockName: string, line: number, lineText: string): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const validBlocks = [
-    ...VALID_HTTP_METHODS,
-    'meta',
-    'headers',
-    'params:query',
-    'params:path',
-    'body:json',
-    'body:xml',
-    'body:text',
-    'body:form-urlencoded',
-    'body:multipart-form',
-    'auth:basic',
-    'auth:bearer',
-    'auth:digest',
-    'script:pre-request',
-    'script:post-response',
-    'tests',
-    'assert',
-    'vars',
-    'docs'
-  ];
 
-  if (!validBlocks.includes(blockName)) {
+  if (!VALID_BLOCKS.includes(blockName as any)) {
     const startChar = lineText.indexOf(blockName);
-    diagnostics.push({
-      severity: DiagnosticSeverity.Error,
-      range: {
-        start: { line, character: startChar },
-        end: { line, character: startChar + blockName.length }
-      },
-      message: `Unknown block type: '${blockName}'`,
-      source: 'bruno-lsp'
-    });
+    diagnostics.push(
+      createDiagnostic({
+        severity: DiagnosticSeverity.Error,
+        line,
+        startChar,
+        endChar: startChar + blockName.length,
+        message: `Unknown block type: '${blockName}'`,
+        code: DiagnosticCode.UnknownBlock,
+      })
+    );
   }
 
   return diagnostics;
@@ -123,43 +108,44 @@ function validateBlockName(blockName: string, line: number, lineText: string): D
 
 function validateMetaBlock(lines: string[], startLine: number, endLine: number): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const metaContent = lines.slice(startLine + 1, endLine).join('\n');
   const foundFields = new Set<string>();
 
   for (let i = startLine + 1; i < endLine; i++) {
     const line = lines[i].trim();
     const match = line.match(/^(\w+):\s*(.+)/);
-
+    
     if (match) {
       const [, field, value] = match;
       foundFields.add(field);
 
-      if (field === 'type' && !VALID_META_TYPES.includes(value.trim())) {
+      if (field === 'type' && !VALID_META_TYPES.includes(value.trim() as any)) {
         const startChar = lines[i].indexOf(value);
-        diagnostics.push({
-          severity: DiagnosticSeverity.Error,
-          range: {
-            start: { line: i, character: startChar },
-            end: { line: i, character: startChar + value.length }
-          },
-          message: `Invalid meta type: '${value}'. Must be 'http' or 'graphql'`,
-          source: 'bruno-lsp'
-        });
+        diagnostics.push(
+          createDiagnostic({
+            severity: DiagnosticSeverity.Error,
+            line: i,
+            startChar,
+            endChar: startChar + value.length,
+            message: `Invalid meta type: '${value}'. Must be 'http' or 'graphql'`,
+            code: DiagnosticCode.InvalidMetaType,
+          })
+        );
       }
 
       if (field === 'seq') {
         const seqValue = parseInt(value.trim());
         if (isNaN(seqValue) || seqValue < 0) {
           const startChar = lines[i].indexOf(value);
-          diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-              start: { line: i, character: startChar },
-              end: { line: i, character: startChar + value.length }
-            },
-            message: 'Sequence number must be a positive integer',
-            source: 'bruno-lsp'
-          });
+          diagnostics.push(
+            createDiagnostic({
+              severity: DiagnosticSeverity.Error,
+              line: i,
+              startChar,
+              endChar: startChar + value.length,
+              message: 'Sequence number must be a positive integer',
+              code: DiagnosticCode.InvalidSeq,
+            })
+          );
         }
       }
     }
@@ -167,15 +153,16 @@ function validateMetaBlock(lines: string[], startLine: number, endLine: number):
 
   for (const required of REQUIRED_META_FIELDS) {
     if (!foundFields.has(required)) {
-      diagnostics.push({
-        severity: DiagnosticSeverity.Error,
-        range: {
-          start: { line: startLine, character: 0 },
-          end: { line: startLine, character: 4 }
-        },
-        message: `Missing required field in meta block: '${required}'`,
-        source: 'bruno-lsp'
-      });
+      diagnostics.push(
+        createDiagnostic({
+          severity: DiagnosticSeverity.Error,
+          line: startLine,
+          startChar: 0,
+          endChar: 4,
+          message: `Missing required field in meta block: '${required}'`,
+          code: DiagnosticCode.MissingMetaField,
+        })
+      );
     }
   }
 
@@ -186,36 +173,38 @@ function validateBlockContent(blockName: string, line: string, lineNum: number):
   const diagnostics: Diagnostic[] = [];
   const trimmed = line.trim();
 
-  if (VALID_HTTP_METHODS.includes(blockName)) {
+  if (HTTP_METHODS.includes(blockName as any)) {
     const urlMatch = trimmed.match(/^url:\s*(.+)/);
     if (urlMatch) {
       const url = urlMatch[1].trim();
       if (!isValidUrl(url)) {
         const startChar = line.indexOf(url);
-        diagnostics.push({
-          severity: DiagnosticSeverity.Warning,
-          range: {
-            start: { line: lineNum, character: startChar },
-            end: { line: lineNum, character: startChar + url.length }
-          },
-          message: 'Invalid URL format',
-          source: 'bruno-lsp'
-        });
+        diagnostics.push(
+          createDiagnostic({
+            severity: DiagnosticSeverity.Warning,
+            line: lineNum,
+            startChar,
+            endChar: startChar + url.length,
+            message: 'Invalid URL format',
+            code: DiagnosticCode.InvalidUrl,
+          })
+        );
       }
     }
   }
 
   if (blockName === 'headers') {
     if (trimmed && !trimmed.startsWith('~') && !trimmed.includes(':')) {
-      diagnostics.push({
-        severity: DiagnosticSeverity.Error,
-        range: {
-          start: { line: lineNum, character: 0 },
-          end: { line: lineNum, character: line.length }
-        },
-        message: 'Invalid header format. Expected: "Header-Name: value"',
-        source: 'bruno-lsp'
-      });
+      diagnostics.push(
+        createDiagnostic({
+          severity: DiagnosticSeverity.Error,
+          line: lineNum,
+          startChar: 0,
+          endChar: line.length,
+          message: 'Invalid header format. Expected: "Header-Name: value"',
+          code: DiagnosticCode.InvalidHeader,
+        })
+      );
     }
   }
 
@@ -224,15 +213,16 @@ function validateBlockContent(blockName: string, line: string, lineNum: number):
       try {
         JSON.parse(trimmed);
       } catch (e) {
-        diagnostics.push({
-          severity: DiagnosticSeverity.Warning,
-          range: {
-            start: { line: lineNum, character: 0 },
-            end: { line: lineNum, character: line.length }
-          },
-          message: 'Invalid JSON syntax',
-          source: 'bruno-lsp'
-        });
+        diagnostics.push(
+          createDiagnostic({
+            severity: DiagnosticSeverity.Warning,
+            line: lineNum,
+            startChar: 0,
+            endChar: line.length,
+            message: 'Invalid JSON syntax',
+            code: DiagnosticCode.InvalidJson,
+          })
+        );
       }
     }
   }
@@ -249,27 +239,29 @@ function validateVariableSyntax(line: string, lineNum: number): Diagnostic[] {
     const variableName = match[1].trim();
 
     if (variableName === '') {
-      diagnostics.push({
-        severity: DiagnosticSeverity.Error,
-        range: {
-          start: { line: lineNum, character: match.index },
-          end: { line: lineNum, character: match.index + match[0].length }
-        },
-        message: 'Empty variable reference',
-        source: 'bruno-lsp'
-      });
+      diagnostics.push(
+        createDiagnostic({
+          severity: DiagnosticSeverity.Error,
+          line: lineNum,
+          startChar: match.index,
+          endChar: match.index + match[0].length,
+          message: 'Empty variable reference',
+          code: DiagnosticCode.EmptyVariable,
+        })
+      );
     }
 
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(variableName)) {
-      diagnostics.push({
-        severity: DiagnosticSeverity.Warning,
-        range: {
-          start: { line: lineNum, character: match.index },
-          end: { line: lineNum, character: match.index + match[0].length }
-        },
-        message: `Invalid variable name: '${variableName}'. Use alphanumeric and underscores only`,
-        source: 'bruno-lsp'
-      });
+      diagnostics.push(
+        createDiagnostic({
+          severity: DiagnosticSeverity.Warning,
+          line: lineNum,
+          startChar: match.index,
+          endChar: match.index + match[0].length,
+          message: `Invalid variable name: '${variableName}'. Use alphanumeric and underscores only`,
+          code: DiagnosticCode.InvalidVariable,
+        })
+      );
     }
   }
 
@@ -280,7 +272,7 @@ function isValidUrl(url: string): boolean {
   if (url.startsWith('{{') && url.endsWith('}}')) {
     return true;
   }
-
+  
   try {
     new URL(url);
     return true;

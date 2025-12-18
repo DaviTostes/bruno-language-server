@@ -1,6 +1,7 @@
-import { 
-  CompletionItem, 
-  TextDocumentPositionParams 
+import {
+  CompletionItem,
+  CompletionItemKind,
+  TextDocumentPositionParams
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { bruBlocks } from './blocks';
@@ -114,22 +115,22 @@ function getScriptCompletions(): CompletionItem[] {
   return [
     {
       label: 'bru',
-      kind: 14,
+      kind: CompletionItemKind.Variable,
       detail: 'Bruno API object',
     },
     {
       label: 'res',
-      kind: 14,
+      kind: CompletionItemKind.Variable,
       detail: 'Response object (post-response only)',
     },
     {
       label: 'req',
-      kind: 14,
+      kind: CompletionItemKind.Variable,
       detail: 'Request object',
     },
     {
       label: 'console',
-      kind: 14,
+      kind: CompletionItemKind.Variable,
       detail: 'Console object',
     },
   ];
