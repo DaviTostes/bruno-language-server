@@ -1,22 +1,42 @@
 {
   "name": "bruno-language-server",
-  "types": "module",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "version": "0.1.0",
+  "description": "Language Server Protocol implementation for Bruno API client",
+  "main": "out/server.js",
+  "bin": {
+    "bruno-language-server": "out/server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "prepublishOnly": "npm run compile"
+  },
+  "keywords": [
+    "bruno",
+    "lsp",
+    "language-server",
+    "api-client"
+  ],
+  "author": "Davi Tostes",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davitostes/bruno-language-server.git"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "dependencies": {
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12"
+    "vscode-languageserver-textdocument": "^1.0.11"
   },
   "devDependencies": {
-    "@types/node": "^25.0.3",
-    "typescript": "^5.9.3"
-  }
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "files": [
+    "out/**/*",
+    "README.md",
+    "LICENSE"
+  ]
 }
