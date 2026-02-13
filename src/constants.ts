@@ -27,7 +27,8 @@ export const VALID_BLOCKS = [
   'tests',
   'assert',
   'vars',
-  'docs'
+  'docs',
+  'settings'
 ] as const;
 
 export const UNIQUE_BLOCKS = new Set([

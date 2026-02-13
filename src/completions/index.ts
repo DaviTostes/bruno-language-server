@@ -9,6 +9,7 @@ import { commonHeaders } from './headers';
 import { bruMethods } from './bru-api';
 import { resProperties, resMethods } from './res-api';
 import { reqProperties, reqMethods } from './req-api';
+import { settingsProperties } from './settings';
 
 export function getCompletions(
   document: TextDocument,
@@ -34,6 +35,10 @@ export function getCompletions(
 
     if (objectName === 'req') {
       return [...reqProperties, ...reqMethods];
+    }
+
+    if (objectName == 'settings') {
+      return [...settingsProperties]
     }
 
     return [];
@@ -75,51 +80,51 @@ export function getCompletions(
 
 function getObjectBeforeDot(text: string, dotPosition: number): string | null {
   let i = dotPosition - 1;
-  
+
   while (i >= 0 && /[\s\n]/.test(text[i])) {
     i--;
   }
-  
+
   let objectName = '';
   while (i >= 0 && /[a-zA-Z0-9_]/.test(text[i])) {
     objectName = text[i] + objectName;
     i--;
   }
-  
+
   return objectName || null;
 }
 
 function getWordBeforeCursor(text: string): string {
   let i = text.length - 1;
-  
+
   while (i >= 0 && /[\s\n]/.test(text[i])) {
     i--;
   }
-  
+
   let word = '';
   while (i >= 0 && /[a-zA-Z0-9_]/.test(text[i])) {
     word = text[i] + word;
     i--;
   }
-  
+
   return word;
 }
 
 function isInScriptBlock(text: string): boolean {
   const scriptMatch = text.lastIndexOf('script:');
   if (scriptMatch === -1) return false;
-  
+
   const afterScript = text.substring(scriptMatch);
   const openBrace = afterScript.indexOf('{');
   const closeBrace = afterScript.indexOf('}');
-  
+
   return openBrace !== -1 && (closeBrace === -1 || openBrace < closeBrace);
 }
 
 function isInHeadersBlock(fullText: string, offset: number, lineText: string): boolean {
   const beforeCursor = fullText.substring(0, offset);
   const headersMatch = beforeCursor.lastIndexOf('headers {');
-  
+
   if (headersMatch === -1) {
     return false;
   }
@@ -151,6 +156,11 @@ function getScriptCompletions(): CompletionItem[] {
       label: 'console',
       kind: CompletionItemKind.Variable,
       detail: 'Console object',
+    },
+    {
+      label: 'settings',
+      kind: CompletionItemKind.Variable,
+      detail: 'Settings object',
     },
   ];
 }
