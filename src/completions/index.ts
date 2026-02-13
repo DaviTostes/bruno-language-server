@@ -20,30 +20,44 @@ export function getCompletions(
 
   const beforeCursor = text.substring(0, offset);
   const lastDot = beforeCursor.lastIndexOf('.');
-  
-  if (lastDot !== -1) {
+
+  if (lastDot !== -1 && lastDot === offset - 1) {
     const objectName = getObjectBeforeDot(beforeCursor, lastDot);
-    
+
     if (objectName === 'bru') {
       return bruMethods;
     }
-    
+
     if (objectName === 'res') {
       return [...resProperties, ...resMethods];
     }
-    
+
     if (objectName === 'req') {
       return [...reqProperties, ...reqMethods];
+    }
+
+    return [];
+  }
+
+  const lastColon = beforeCursor.lastIndexOf(':');
+  if (lastColon !== -1 && lastColon === offset - 1) {
+    const wordBeforeColon = getWordBeforeCursor(beforeCursor.substring(0, lastColon));
+
+    const validPrefixes = ['params', 'body', 'script', 'auth'];
+    if (!validPrefixes.includes(wordBeforeColon)) {
+      if (!isInHeadersBlock(text, offset, lineText)) {
+        return [];
+      }
     }
   }
 
   if (isInScriptBlock(beforeCursor)) {
     const wordBeforeCursor = getWordBeforeCursor(beforeCursor);
-    
+
     if (wordBeforeCursor === 'bru' || wordBeforeCursor === 'res' || wordBeforeCursor === 'req') {
       return [];
     }
-    
+
     return getScriptCompletions();
   }
 
@@ -51,7 +65,12 @@ export function getCompletions(
     return commonHeaders;
   }
 
-  return bruBlocks;
+  const lineBeforeCursor = lineText.substring(0, position.position.character);
+  if (lineBeforeCursor.trim().length === 0 || lineBeforeCursor.trim().length === lineText.trim().length) {
+    return bruBlocks;
+  }
+
+  return [];
 }
 
 function getObjectBeforeDot(text: string, dotPosition: number): string | null {

@@ -1,19 +1,9 @@
 import {
   Diagnostic,
   DiagnosticSeverity,
-  DiagnosticRelatedInformation,
 } from 'vscode-languageserver/node';
 import { DIAGNOSTIC_SOURCE, DiagnosticCode } from '../constants';
-
-interface DiagnosticParams {
-  severity: DiagnosticSeverity;
-  line: number;
-  startChar: number;
-  endChar: number;
-  message: string;
-  code: DiagnosticCode;
-  relatedInformation?: DiagnosticRelatedInformation[];
-}
+import { DiagnosticParams } from '../types';
 
 export function createDiagnostic(params: DiagnosticParams): Diagnostic {
   return {

@@ -227,6 +227,25 @@ function validateBlockContent(blockName: string, line: string, lineNum: number):
     }
   }
 
+  if (blockName.startsWith('settings')) {
+    if (trimmed && !trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.startsWith('"')) {
+      try {
+        JSON.parse(trimmed);
+      } catch (e) {
+        diagnostics.push(
+          createDiagnostic({
+            severity: DiagnosticSeverity.Warning,
+            line: lineNum,
+            startChar: 0,
+            endChar: line.length,
+            message: 'Invalid JSON syntax',
+            code: DiagnosticCode.InvalidJson,
+          })
+        );
+      }
+    }
+  }
+
   return diagnostics;
 }
 

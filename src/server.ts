@@ -12,6 +12,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getCompletions } from './completions';
 import { validateBruDocument } from './diagnostics';
+import { COMPLETION_TRIGGER_CHARACTERS } from './constants';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -22,7 +23,7 @@ connection.onInitialize((params: InitializeParams) => {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: {
         resolveProvider: true,
-        triggerCharacters: ['{', '.', ':']
+        triggerCharacters: [...COMPLETION_TRIGGER_CHARACTERS]
       },
       hoverProvider: true,
     }

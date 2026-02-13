@@ -1,7 +1,3 @@
-/**
- * Shared constants for Bruno Language Server
- */
-
 export const DIAGNOSTIC_SOURCE = 'bruno-lsp';
 
 export const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'] as const;
@@ -36,6 +32,7 @@ export const VALID_BLOCKS = [
 
 export const UNIQUE_BLOCKS = new Set([
   'meta',
+  'settings',
   ...HTTP_METHODS,
 ]);
 
@@ -45,7 +42,7 @@ export const ALLOW_MULTIPLE_BLOCKS = new Set([
   'tests',
 ]);
 
-export const COMPLETION_TRIGGER_CHARACTERS = ['{', '.', ':'] as const;
+export const COMPLETION_TRIGGER_CHARACTERS = ['.', ':'] as const;
 
 export enum DiagnosticCode {
   MissingHttpMethod = 'missing-http-method',

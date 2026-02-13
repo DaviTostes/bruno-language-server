@@ -1,6 +1,6 @@
 {
   "name": "bruno-language-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Language Server Protocol implementation for Bruno API client",
   "main": "out/server.js",
   "bin": {
