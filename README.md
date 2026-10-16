@@ -64,6 +64,7 @@ cd bruno-language-server
 npm install
 npm run compile
 npm run watch  # watch mode
+npm test       # compile and run tests
 ```
 
 ## License

@@ -6,7 +6,7 @@ export const VALID_META_TYPES = ['http', 'graphql'] as const;
 
 export const REQUIRED_META_FIELDS = ['name', 'type'] as const;
 
-export const BLOCK_START_PATTERN = /^(\w+(?::\w+)?)\s*\{/;
+export const BLOCK_START_PATTERN = /^(\w+(?::[\w-]+)*)\s*\{/;
 
 export const VALID_BLOCKS = [
   ...HTTP_METHODS,
@@ -22,6 +22,15 @@ export const VALID_BLOCKS = [
   'auth:basic',
   'auth:bearer',
   'auth:digest',
+  'auth:oauth2',
+  'auth:apikey',
+  'auth:awsv4',
+  'auth:ntlm',
+  'auth:wsse',
+  'body:graphql',
+  'body:graphql:vars',
+  'vars:pre-request',
+  'vars:post-response',
   'script:pre-request',
   'script:post-response',
   'tests',
@@ -34,6 +43,7 @@ export const VALID_BLOCKS = [
 export const UNIQUE_BLOCKS = new Set([
   'meta',
   'settings',
+  'body:graphql:vars',
   ...HTTP_METHODS,
 ]);
 

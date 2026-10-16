@@ -4,6 +4,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { checkDuplicateBlocks } from './duplicates';
+import { findBlocks } from './blocks';
 import {
   HTTP_METHODS,
   VALID_META_TYPES,
@@ -22,43 +23,38 @@ export function validateBruDocument(textDocument: TextDocument): Diagnostic[] {
 
   let hasHttpMethod = false;
   let hasMeta = false;
-  let currentBlock: string | null = null;
-  let blockStartLine = 0;
+  const blockAtLine = new Map<number, string>();
+
+  for (const { name, startLine, endLine } of findBlocks(lines)) {
+    if (HTTP_METHODS.includes(name as any)) {
+      hasHttpMethod = true;
+    }
+
+    if (name === 'meta') {
+      hasMeta = true;
+      diagnostics.push(...validateMetaBlock(lines, startLine, endLine));
+    }
+
+    diagnostics.push(...validateBlockName(name, startLine, lines[startLine]));
+
+    for (let i = startLine + 1; i < endLine; i++) {
+      blockAtLine.set(i, name);
+    }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const trimmedLine = line.trim();
+    if (line.trim() === '') continue;
 
-    if (trimmedLine === '') continue;
-
-    const blockMatch = trimmedLine.match(/^(\w+(?::\w+)?)\s*\{/);
-    if (blockMatch) {
-      currentBlock = blockMatch[1];
-      blockStartLine = i;
-
-      if (HTTP_METHODS.includes(currentBlock as any)) {
-        hasHttpMethod = true;
-      }
-
-      if (currentBlock === 'meta') {
-        hasMeta = true;
-      }
-
-      diagnostics.push(...validateBlockName(currentBlock, i, line));
+    const block = blockAtLine.get(i);
+    if (block) {
+      diagnostics.push(...validateBlockContent(block, line, i));
     }
 
-    if (trimmedLine === '}') {
-      if (currentBlock === 'meta') {
-        diagnostics.push(...validateMetaBlock(lines, blockStartLine, i));
-      }
-      currentBlock = null;
+    // `{{ }}` in script/tests/docs is code or prose, not a Bruno variable
+    if (!block || !/^(script:|tests$|docs$)/.test(block)) {
+      diagnostics.push(...validateVariableSyntax(line, i));
     }
-
-    if (currentBlock && !trimmedLine.endsWith('{') && trimmedLine !== '}') {
-      diagnostics.push(...validateBlockContent(currentBlock, line, i));
-    }
-
-    diagnostics.push(...validateVariableSyntax(line, i));
   }
 
   if (!hasHttpMethod) {
@@ -208,25 +204,6 @@ function validateBlockContent(blockName: string, line: string, lineNum: number):
     }
   }
 
-  if (blockName.startsWith('body:json')) {
-    if (trimmed && !trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.startsWith('"')) {
-      try {
-        JSON.parse(trimmed);
-      } catch (e) {
-        diagnostics.push(
-          createDiagnostic({
-            severity: DiagnosticSeverity.Warning,
-            line: lineNum,
-            startChar: 0,
-            endChar: line.length,
-            message: 'Invalid JSON syntax',
-            code: DiagnosticCode.InvalidJson,
-          })
-        );
-      }
-    }
-  }
-
   return diagnostics;
 }
 
@@ -251,14 +228,14 @@ function validateVariableSyntax(line: string, lineNum: number): Diagnostic[] {
       );
     }
 
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(variableName)) {
+    if (!/^\$?[a-zA-Z_][\w.-]*$/.test(variableName)) {
       diagnostics.push(
         createDiagnostic({
           severity: DiagnosticSeverity.Warning,
           line: lineNum,
           startChar: match.index,
           endChar: match.index + match[0].length,
-          message: `Invalid variable name: '${variableName}'. Use alphanumeric and underscores only`,
+          message: `Invalid variable name: '${variableName}'. Use letters, digits, '_', '.', '-' and an optional leading '$'`,
           code: DiagnosticCode.InvalidVariable,
         })
       );
@@ -269,10 +246,11 @@ function validateVariableSyntax(line: string, lineNum: number): Diagnostic[] {
 }
 
 function isValidUrl(url: string): boolean {
-  if (url.startsWith('{{') && url.endsWith('}}')) {
+  // shortcut: the resolved URL can't be checked statically
+  if (url.includes('{{')) {
     return true;
   }
-  
+
   try {
     new URL(url);
     return true;

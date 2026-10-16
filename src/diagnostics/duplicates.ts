@@ -5,9 +5,9 @@ import {
 import {
   HTTP_METHODS,
   UNIQUE_BLOCKS,
-  BLOCK_START_PATTERN,
   DiagnosticCode,
 } from '../constants';
+import { findBlocks } from './blocks';
 import { createDiagnostic } from '../utils/diagnostics';
 
 interface BlockInfo {
@@ -24,22 +24,14 @@ export function checkDuplicateBlocks(
   const diagnostics: Diagnostic[] = [];
   const blocks: BlockInfo[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    const blockMatch = trimmed.match(BLOCK_START_PATTERN);
-    if (blockMatch) {
-      const blockName = blockMatch[1];
-      const startChar = line.indexOf(blockName);
-
-      blocks.push({
-        name: blockName,
-        line: i,
-        startChar,
-        endChar: startChar + blockName.length,
-      });
-    }
+  for (const { name, startLine } of findBlocks(lines)) {
+    const startChar = lines[startLine].indexOf(name);
+    blocks.push({
+      name,
+      line: startLine,
+      startChar,
+      endChar: startChar + name.length,
+    });
   }
 
   const httpMethods = blocks.filter(b =>
@@ -102,7 +94,7 @@ export function checkDuplicateBlocks(
     }
   });
 
-  const bodyBlocks = blocks.filter(b => b.name.startsWith('body:'));
+  const bodyBlocks = blocks.filter(b => b.name.startsWith('body:') && b.name !== 'body:graphql:vars');
   if (bodyBlocks.length > 1) {
     bodyBlocks.forEach((block, idx) => {
       if (idx > 0) {
